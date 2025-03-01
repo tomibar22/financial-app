@@ -1,10 +1,21 @@
 /**
- * Fetch client list from Notion database
+ * Fetch client list from Notion database with caching
  * @param {string} notionApiKey - Your Notion API key
  * @param {string} databaseId - ID of the Notion database
  * @returns {Promise<string[]>} Array of client names
  */
 export async function fetchClientsFromNotion(notionApiKey, databaseId) {
+    // Check for cached client list first
+    const cachedClients = localStorage.getItem('notionClients');
+    const cacheTimestamp = localStorage.getItem('notionClientsTimestamp');
+    const currentTime = new Date().getTime();
+    
+    // Use cache if it exists and is less than 1 hour old (3600000 milliseconds)
+    if (cachedClients && cacheTimestamp && (currentTime - parseInt(cacheTimestamp) < 3600000)) {
+        console.log("Using cached client list");
+        return JSON.parse(cachedClients);
+    }
+    
     console.log("Fetching clients from Notion...");
     console.log("Database ID:", databaseId);
     const headers = {
@@ -51,9 +62,22 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
             }
         });
         console.log("Extracted client names:", Array.from(clientSet));
-        return Array.from(clientSet).sort();
+        
+        // After successful fetch, cache the results
+        const clientList = Array.from(clientSet).sort();
+        localStorage.setItem('notionClients', JSON.stringify(clientList));
+        localStorage.setItem('notionClientsTimestamp', currentTime.toString());
+        
+        return clientList;
     } catch (error) {
         console.error("Error fetching clients from Notion:", error);
+        
+        // If there's an error but we have cached data (even if old), use it as fallback
+        if (cachedClients) {
+            console.log("Using cached client list as fallback after API error");
+            return JSON.parse(cachedClients);
+        }
+        
         throw error;
     }
 }
