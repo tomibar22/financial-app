@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchClientsFromNotion, createNotionRecord, getNotionDatabaseSchema } from './notionApi';
+import { fetchClientsFromNotion, createNotionRecord } from './notionApi';
 import { createMorningInvoice, createMorningReceipt } from './morningApi';
 import { NOTION_API_KEY, NOTION_DATABASE_ID, MORNING_ID, MORNING_SECRET } from './config';
 import './FinancialApp.css';
@@ -27,19 +27,7 @@ const FinancialApp = () => {
     const today = new Date().toISOString().split('T')[0];
     setFormData(prev => ({ ...prev, date: today }));
   }, []);
-  
-  // Get database schema to verify property names and types
-  useEffect(() => {
-    const getDatabaseSchema = async () => {
-      try {
-        await getNotionDatabaseSchema(NOTION_API_KEY, NOTION_DATABASE_ID);
-      } catch (error) {
-        console.error("Error getting database schema:", error);
-      }
-    };
-    
-    getDatabaseSchema();
-  }, []);
+
   
   // Fetch clients from Notion database
   useEffect(() => {
