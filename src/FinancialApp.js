@@ -279,7 +279,7 @@ const FinancialApp = () => {
         
         <div>
           <div className="form-group">
-            <label className="form-label">פרטי:</label>
+            <label className="form-label">פרטים:</label>
             <input
               name="income"
               value={formData.income}
