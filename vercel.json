@@ -1,0 +1,17 @@
+{
+    "version": 2,
+    "routes": [
+      {
+        "src": "/api/notion/(.*)",
+        "dest": "/api/notion.js"
+      },
+      {
+        "src": "/api/morning/(.*)",
+        "dest": "/api/morning.js"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/$1"
+      }
+    ]
+  }

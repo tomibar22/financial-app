@@ -16,8 +16,9 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
   
     try {
       // Query the database to get all records
-      console.log("Sending request to Notion API via proxy...");
-      const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}/query`, {
+      console.log("Sending request to Notion API...");
+      // Use relative path that works in both local and production environments
+      const response = await fetch(`/api/notion/v1/databases/${databaseId}/query`, {
         method: "POST",
         headers: headers,
         body: JSON.stringify({
@@ -62,41 +63,6 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
       throw error;
     }
   }
-  
-  /**
-   * Get Notion database schema to verify property names and types
-   * @param {string} notionApiKey - Your Notion API key
-   * @param {string} databaseId - ID of the Notion database
-   * @returns {Promise<Object>} Database schema
-   */
-//   export async function getNotionDatabaseSchema(notionApiKey, databaseId) {
-//     console.log("Getting Notion database schema...");
-    
-//     const headers = {
-//       "Authorization": `Bearer ${notionApiKey}`,
-//       "Notion-Version": "2022-06-28"
-//     };
-  
-//     try {
-//       const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}`, {
-//         method: "GET",
-//         headers: headers
-//       });
-      
-//       if (!response.ok) {
-//         const errorText = await response.text();
-//         console.error("Notion API error response:", errorText);
-//         throw new Error(`Failed to get database schema: ${response.status}`);
-//       }
-      
-//       const data = await response.json();
-//       console.log("Database schema properties:", JSON.stringify(data.properties, null, 2));
-//       return data;
-//     } catch (error) {
-//       console.error("Error getting database schema:", error);
-//       throw error;
-//     }
-//   }
   
   /**
    * Create a new invoice/receipt document and record in Notion
@@ -191,9 +157,9 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
       
       console.log("Notion request body:", JSON.stringify(requestBody, null, 2));
       
-      // Use the proxy server URL
-      console.log("Sending request to Notion API via proxy...");
-      const response = await fetch("http://localhost:3001/notion/v1/pages", {
+      // Use the updated API path
+      console.log("Sending request to Notion API...");
+      const response = await fetch("/api/notion/v1/pages", {
         method: "POST",
         headers: headers,
         body: JSON.stringify(requestBody)
@@ -215,4 +181,3 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
       throw error;
     }
   }
-  
