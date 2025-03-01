@@ -21,7 +21,7 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
         method: "POST",
         headers: headers,
         body: JSON.stringify({
-          page_size: 100, // Adjust based on your needs
+          page_size: 500, // Adjust based on your needs
         })
       });
   
@@ -69,34 +69,34 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
    * @param {string} databaseId - ID of the Notion database
    * @returns {Promise<Object>} Database schema
    */
-  export async function getNotionDatabaseSchema(notionApiKey, databaseId) {
-    console.log("Getting Notion database schema...");
+//   export async function getNotionDatabaseSchema(notionApiKey, databaseId) {
+//     console.log("Getting Notion database schema...");
     
-    const headers = {
-      "Authorization": `Bearer ${notionApiKey}`,
-      "Notion-Version": "2022-06-28"
-    };
+//     const headers = {
+//       "Authorization": `Bearer ${notionApiKey}`,
+//       "Notion-Version": "2022-06-28"
+//     };
   
-    try {
-      const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}`, {
-        method: "GET",
-        headers: headers
-      });
+//     try {
+//       const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}`, {
+//         method: "GET",
+//         headers: headers
+//       });
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Notion API error response:", errorText);
-        throw new Error(`Failed to get database schema: ${response.status}`);
-      }
+//       if (!response.ok) {
+//         const errorText = await response.text();
+//         console.error("Notion API error response:", errorText);
+//         throw new Error(`Failed to get database schema: ${response.status}`);
+//       }
       
-      const data = await response.json();
-      console.log("Database schema properties:", JSON.stringify(data.properties, null, 2));
-      return data;
-    } catch (error) {
-      console.error("Error getting database schema:", error);
-      throw error;
-    }
-  }
+//       const data = await response.json();
+//       console.log("Database schema properties:", JSON.stringify(data.properties, null, 2));
+//       return data;
+//     } catch (error) {
+//       console.error("Error getting database schema:", error);
+//       throw error;
+//     }
+//   }
   
   /**
    * Create a new invoice/receipt document and record in Notion
