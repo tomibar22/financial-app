@@ -1,9 +1,8 @@
 /**
- * Create a receipt in Morning (Green Invoice)
- * @param {Object} receiptData - Receipt data
+ * Get Morning API token
  * @param {string} morningId - Your Morning API ID
  * @param {string} morningSecret - Your Morning API secret
- * @returns {Promise<Object>} Created receipt data
+ * @returns {Promise<string>} Bearer token
  */
 export async function getMorningToken(morningId, morningSecret) {
     console.log("Getting Morning API token...");
@@ -42,8 +41,121 @@ export async function getMorningToken(morningId, morningSecret) {
       throw error;
     }
   }
-
-export async function createMorningReceipt(receiptData, morningId, morningSecret) {
+  
+  /**
+   * Create an invoice in Morning (Green Invoice)
+   * @param {Object} invoiceData - Invoice data
+   * @param {string} morningId - Your Morning API ID
+   * @param {string} morningSecret - Your Morning API secret
+   * @returns {Promise<Object>} Created invoice data
+   */
+  export async function createMorningInvoice(invoiceData, morningId, morningSecret) {
+    console.log("Creating Morning invoice...");
+  
+    try {
+      // Get token first
+      const token = await getMorningToken(morningId, morningSecret);
+  
+      // Map payment method to Morning API values
+      let paymentType = 0;
+      switch (invoiceData.paymentMethod) {
+        case "העברה": paymentType = 4; break;
+        case "אפליקציית תשלום": paymentType = 10; break;
+        case "מזומן": paymentType = 1; break;
+        case "צ׳ק": paymentType = 2; break;
+        default: paymentType = 4;
+      }
+  
+      // Map payment app to Morning API values
+      let appType = null;
+      if (invoiceData.paymentMethod === "אפליקציית תשלום") {
+        switch (invoiceData.application) {
+          case "ביט": appType = 1; break;
+          case "פיי-בוקס": appType = 3; break;
+          default: appType = "";
+        }
+      }
+  
+      // Create the invoice
+      const payload = {
+        description: invoiceData.description,
+        type: 300, // Invoice type
+        vatType: 0,
+        lang: "he",
+        currency: "ILS",
+        remarks: 'פרטים להעברה: בנק 20, סניף 574, חשבון 113862',
+        client: {
+          name: invoiceData.client,
+          add: true,
+          self: false,
+        },
+        rounding: false,
+        income: [
+          {
+            description: invoiceData.description,
+            quantity: 1,
+            price: parseFloat(invoiceData.amount),
+            currency: "ILS",
+            vatType: 0
+          },
+        ],
+        payment: [
+          {
+            type: paymentType,
+            price: parseFloat(invoiceData.amount),
+            currency: "ILS",
+            date: invoiceData.date,
+            appType: appType,
+          },
+        ]
+      };
+  
+      // If sending email, add content
+      if (invoiceData.sendEmail) {
+        payload.emailContent = 'פרטים להעברה: בנק 20, סניף 574, חשבון 113862';
+      }
+  
+      console.log("Morning invoice payload:", JSON.stringify(payload));
+  
+      // Use the updated API path
+      const response = await fetch("/api/morning/api/v1/documents", {
+        method: "POST",
+        headers: {
+          "Authorization": token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Morning API error response:", errorText);
+        throw new Error(`Failed to create Morning invoice: ${response.status}`);
+      }
+  
+      const data = await response.json();
+      console.log("Morning invoice created successfully:", data);
+  
+      // Send email if requested
+      if (invoiceData.sendEmail && data.client && data.client.id && data.id) {
+        await sendMorningEmail(data.id, data.client.id, "חשבונית", token);
+      }
+  
+      return data;
+    } catch (error) {
+      console.error("Error creating Morning invoice:", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Create a receipt in Morning (Green Invoice)
+   * @param {Object} receiptData - Receipt data
+   * @param {string} morningId - Your Morning API ID
+   * @param {string} morningSecret - Your Morning API secret
+   * @returns {Promise<Object>} Created receipt data
+   */
+  export async function createMorningReceipt(receiptData, morningId, morningSecret) {
     console.log("Creating Morning receipt...");
   
     try {
