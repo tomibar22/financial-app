@@ -1,55 +1,57 @@
 // api/morning.js
-const { createProxyMiddleware } = require('http-proxy-middleware');
-
-// This is only used in development
-// In production, the Vercel platform handles this differently
-if (process.env.NODE_ENV === 'development') {
-  module.exports = (req, res) => {
-    let proxy = createProxyMiddleware({
-      target: 'https://api.greeninvoice.co.il',
-      changeOrigin: true,
-      pathRewrite: { '^/api/morning': '' },
+module.exports = async (req, res) => {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+  
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  try {
+    // Extract path from request URL (remove /api/morning)
+    const urlPath = req.url.replace(/^\/api\/morning/, '');
+    const morningUrl = `https://api.greeninvoice.co.il${urlPath}`;
+    
+    console.log(`Proxying request to: ${morningUrl}`);
+    
+    // Get the request body for POST requests
+    let body = null;
+    if (req.method === 'POST' && req.body) {
+      body = JSON.stringify(req.body);
+    }
+    
+    // Make the request to Morning API
+    const response = await fetch(morningUrl, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        // Forward Authorization header if present
+        ...(req.headers.authorization && { 'Authorization': req.headers.authorization })
+      },
+      // Only include body for POST/PUT requests
+      ...(body && { body })
     });
     
-    proxy(req, res);
-  };
-} else {
-  // For Vercel production environment
-  module.exports = async (req, res) => {
-    // Extract the path without the /api/morning prefix
-    const path = req.url.replace(/^\/api\/morning/, '');
+    // Get the response as text
+    const responseText = await response.text();
     
-    // Reconstruct the full Morning API URL
-    const morningUrl = `https://api.greeninvoice.co.il${path}`;
-    
-    // Prepare headers
-    const headers = {
-      ...req.headers,
-      host: 'api.greeninvoice.co.il',
-    };
-    
-    delete headers['x-forwarded-host'];
-    
+    // Try to parse as JSON if possible
+    let responseData;
     try {
-      // Make the request to Morning
-      const morningResponse = await fetch(morningUrl, {
-        method: req.method,
-        headers: headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-      });
-      
-      // Get response data
-      const data = await morningResponse.text();
-      
-      // Set response headers
-      for (const [key, value] of morningResponse.headers.entries()) {
-        res.setHeader(key, value);
-      }
-      
-      // Send response
-      res.status(morningResponse.status).send(data);
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+      responseData = JSON.parse(responseText);
+    } catch (e) {
+      responseData = responseText;
     }
-  };
-}
+    
+    // Forward the status and response
+    res.status(response.status).json(responseData);
+  } catch (error) {
+    console.error('Morning API proxy error:', error);
+    res.status(500).json({ error: 'Error proxying to Morning API', message: error.message });
+  }
+};
