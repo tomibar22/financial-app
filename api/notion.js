@@ -1,55 +1,72 @@
 // api/notion.js
-const { createProxyMiddleware } = require('http-proxy-middleware');
-
-// This is only used in development
-// In production, the Vercel platform handles this differently
-if (process.env.NODE_ENV === 'development') {
-  module.exports = (req, res) => {
-    let proxy = createProxyMiddleware({
-      target: 'https://api.notion.com',
-      changeOrigin: true,
-      pathRewrite: { '^/api/notion': '' },
-    });
+module.exports = async (req, res) => {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
     
-    proxy(req, res);
-  };
-} else {
-  // For Vercel production environment
-  module.exports = async (req, res) => {
-    // Extract the path without the /api/notion prefix
-    const path = req.url.replace(/^\/api\/notion/, '');
-    
-    // Reconstruct the full Notion API URL
-    const notionUrl = `https://api.notion.com${path}`;
-    
-    // Prepare headers
-    const headers = {
-      ...req.headers,
-      host: 'api.notion.com',
-    };
-    
-    delete headers['x-forwarded-host'];
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
     
     try {
-      // Make the request to Notion
-      const notionResponse = await fetch(notionUrl, {
-        method: req.method,
-        headers: headers,
-        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
-      });
+      // Extract path from request URL (remove /api/notion)
+      const urlPath = req.url.replace(/^\/api\/notion/, '');
+      const notionUrl = `https://api.notion.com${urlPath}`;
       
-      // Get response data
-      const data = await notionResponse.text();
+      console.log(`Proxying request to: ${notionUrl}`);
       
-      // Set response headers
-      for (const [key, value] of notionResponse.headers.entries()) {
-        res.setHeader(key, value);
+      // Forward headers (especially Authorization)
+      const headers = { ...req.headers };
+      
+      // Remove host-related headers that could cause issues
+      delete headers.host;
+      delete headers['x-forwarded-host'];
+      delete headers['x-forwarded-proto'];
+      delete headers['x-forwarded-port'];
+      delete headers['x-real-ip'];
+      
+      // Add Notion version if not present
+      if (!headers['notion-version']) {
+        headers['notion-version'] = '2022-06-28';
       }
       
-      // Send response
-      res.status(notionResponse.status).send(data);
+      // Forward the request to Notion API
+      const fetchOptions = {
+        method: req.method,
+        headers: headers,
+      };
+      
+      // Add body for non-GET requests
+      if (req.method !== 'GET' && req.body) {
+        fetchOptions.body = JSON.stringify(req.body);
+      }
+      
+      // Make the request to Notion
+      const response = await fetch(notionUrl, fetchOptions);
+      
+      // Get the response as text first (to properly handle any content type)
+      const responseText = await response.text();
+      
+      // Try to parse as JSON if possible
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        responseData = responseText;
+      }
+      
+      // Forward the status and response
+      res.status(response.status).json(responseData);
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error('Notion API proxy error:', error);
+      res.status(500).json({ 
+        error: 'Error proxying to Notion API', 
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   };
-}
