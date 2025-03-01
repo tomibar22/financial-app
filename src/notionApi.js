@@ -21,7 +21,7 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
         method: "POST",
         headers: headers,
         body: JSON.stringify({
-          page_size: 500, // Adjust based on your needs
+          page_size: 200, // Adjust based on your needs
         })
       });
   
