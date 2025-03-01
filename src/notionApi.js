@@ -1,86 +1,68 @@
 /**
- * Fetch client list from Notion database with caching
+ * Fetch client list from Notion database
  * @param {string} notionApiKey - Your Notion API key
  * @param {string} databaseId - ID of the Notion database
  * @returns {Promise<string[]>} Array of client names
  */
 export async function fetchClientsFromNotion(notionApiKey, databaseId) {
-    // Check for cached client list first
-    const cachedClients = localStorage.getItem('notionClients');
-    const cacheTimestamp = localStorage.getItem('notionClientsTimestamp');
-    const currentTime = new Date().getTime();
-    
-    // Use cache if it exists and is less than 1 hour old (3600000 milliseconds)
-    if (cachedClients && cacheTimestamp && (currentTime - parseInt(cacheTimestamp) < 3600000)) {
-        console.log("Using cached client list");
-        return JSON.parse(cachedClients);
-    }
-    
     console.log("Fetching clients from Notion...");
     console.log("Database ID:", databaseId);
+    
     const headers = {
-        "Authorization": `Bearer ${notionApiKey}`,
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28"
+      "Authorization": `Bearer ${notionApiKey}`,
+      "Content-Type": "application/json",
+      "Notion-Version": "2022-06-28"
     };
-    let allResults = [];
-    let hasMore = true;
-    let startCursor = null;
+  
     try {
-        while (hasMore) {
-            const body = {
-                page_size: 100, // Max limit
-            };
-            if (startCursor) {
-                body.start_cursor = startCursor; // Fetch next page
-            }
-            console.log("Sending request to Notion API...");
-            const response = await fetch(`/api/notion/v1/databases/${databaseId}/query`, {
-                method: "POST",
-                headers: headers,
-                body: JSON.stringify(body)
-            });
-            console.log("Notion API response status:", response.status);
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error("Notion API error response:", errorText);
-                throw new Error(`Notion API responded with status: ${response.status}`);
-            }
-            const data = await response.json();
-            allResults = allResults.concat(data.results);
-            hasMore = data.has_more;
-            startCursor = data.next_cursor; // Set cursor for next page
-            console.log(`Fetched ${data.results.length} more clients, total: ${allResults.length}`);
+      // Query the database to get all records
+      console.log("Sending request to Notion API...");
+      // Use relative path that works in both local and production environments
+      const response = await fetch(`/api/notion/v1/databases/${databaseId}/query`, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify({
+          page_size: 100, // Adjust based on your needs
+        })
+      });
+  
+      console.log("Notion API response status:", response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Notion API error response:", errorText);
+        throw new Error(`Notion API responded with status: ${response.status}`);
+      }
+  
+      const data = await response.json();
+      console.log("Received data from Notion, pages:", data.results.length);
+      
+      // Log the structure of the first result to help debug property access
+      if (data.results.length > 0) {
+        console.log("First result properties:", JSON.stringify(data.results[0].properties, null, 2));
+      }
+      
+      // Extract unique client names from the "שולם ע״י" property
+      const clientSet = new Set();
+      
+      data.results.forEach(page => {
+        // Make sure to match the exact property name and type from your database
+        if (page.properties["שולם ע״י"] && 
+            page.properties["שולם ע״י"].select && 
+            page.properties["שולם ע״י"].select.name) {
+          clientSet.add(page.properties["שולם ע״י"].select.name);
         }
-        console.log("Total records fetched:", allResults.length);
-        const clientSet = new Set();
-        allResults.forEach(page => {
-            if (page.properties["שולם ע״י"] && 
-                page.properties["שולם ע״י"].select && 
-                page.properties["שולם ע״י"].select.name) {
-                clientSet.add(page.properties["שולם ע״י"].select.name);
-            }
-        });
-        console.log("Extracted client names:", Array.from(clientSet));
-        
-        // After successful fetch, cache the results
-        const clientList = Array.from(clientSet).sort();
-        localStorage.setItem('notionClients', JSON.stringify(clientList));
-        localStorage.setItem('notionClientsTimestamp', currentTime.toString());
-        
-        return clientList;
+      });
+      
+      console.log("Extracted client names:", Array.from(clientSet));
+      
+      // Convert set to array and sort alphabetically
+      return Array.from(clientSet).sort();
     } catch (error) {
-        console.error("Error fetching clients from Notion:", error);
-        
-        // If there's an error but we have cached data (even if old), use it as fallback
-        if (cachedClients) {
-            console.log("Using cached client list as fallback after API error");
-            return JSON.parse(cachedClients);
-        }
-        
-        throw error;
+      console.error("Error fetching clients from Notion:", error);
+      throw error;
     }
-}
+  }
   
   /**
    * Create a new invoice/receipt document and record in Notion
