@@ -27,6 +27,143 @@ yarn-error.log*
 
 ```
 
+# api/morning.js
+
+```js
+// api/morning.js
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+// This is only used in development
+// In production, the Vercel platform handles this differently
+if (process.env.NODE_ENV === 'development') {
+  module.exports = (req, res) => {
+    let proxy = createProxyMiddleware({
+      target: 'https://api.greeninvoice.co.il',
+      changeOrigin: true,
+      pathRewrite: { '^/api/morning': '' },
+    });
+    
+    proxy(req, res);
+  };
+} else {
+  // For Vercel production environment
+  module.exports = async (req, res) => {
+    // Extract the path without the /api/morning prefix
+    const path = req.url.replace(/^\/api\/morning/, '');
+    
+    // Reconstruct the full Morning API URL
+    const morningUrl = `https://api.greeninvoice.co.il${path}`;
+    
+    // Prepare headers
+    const headers = {
+      ...req.headers,
+      host: 'api.greeninvoice.co.il',
+    };
+    
+    delete headers['x-forwarded-host'];
+    
+    try {
+      // Make the request to Morning
+      const morningResponse = await fetch(morningUrl, {
+        method: req.method,
+        headers: headers,
+        body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      });
+      
+      // Get response data
+      const data = await morningResponse.text();
+      
+      // Set response headers
+      for (const [key, value] of morningResponse.headers.entries()) {
+        res.setHeader(key, value);
+      }
+      
+      // Send response
+      res.status(morningResponse.status).send(data);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  };
+}
+```
+
+# api/notion.js
+
+```js
+// api/notion.js
+module.exports = async (req, res) => {
+    // Enable CORS
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+    
+    // Handle preflight OPTIONS request
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+    
+    try {
+      // Extract path from request URL (remove /api/notion)
+      const urlPath = req.url.replace(/^\/api\/notion/, '');
+      const notionUrl = `https://api.notion.com${urlPath}`;
+      
+      console.log(`Proxying request to: ${notionUrl}`);
+      
+      // Forward headers (especially Authorization)
+      const headers = { ...req.headers };
+      
+      // Remove host-related headers that could cause issues
+      delete headers.host;
+      delete headers['x-forwarded-host'];
+      delete headers['x-forwarded-proto'];
+      delete headers['x-forwarded-port'];
+      delete headers['x-real-ip'];
+      
+      // Add Notion version if not present
+      if (!headers['notion-version']) {
+        headers['notion-version'] = '2022-06-28';
+      }
+      
+      // Forward the request to Notion API
+      const fetchOptions = {
+        method: req.method,
+        headers: headers,
+      };
+      
+      // Add body for non-GET requests
+      if (req.method !== 'GET' && req.body) {
+        fetchOptions.body = JSON.stringify(req.body);
+      }
+      
+      // Make the request to Notion
+      const response = await fetch(notionUrl, fetchOptions);
+      
+      // Get the response as text first (to properly handle any content type)
+      const responseText = await response.text();
+      
+      // Try to parse as JSON if possible
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        responseData = responseText;
+      }
+      
+      // Forward the status and response
+      res.status(response.status).json(responseData);
+    } catch (error) {
+      console.error('Notion API proxy error:', error);
+      res.status(500).json({ 
+        error: 'Error proxying to Notion API', 
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  };
+```
+
 # package.json
 
 ```json
@@ -81,7 +218,6 @@ yarn-error.log*
     "tailwindcss": "^3.2.4"
   }
 }
-
 ```
 
 # postcss.config.js
@@ -1059,7 +1195,6 @@ This is a file of the type: SVG Image
  */
 export async function getMorningToken(morningId, morningSecret) {
     console.log("Getting Morning API token...");
-    console.log("Endpoint: http://localhost:3001/morning/api/v1/account/token");
     console.log("Using Morning ID:", morningId);
     console.log("Payload:", JSON.stringify({
       id: morningId,
@@ -1067,8 +1202,8 @@ export async function getMorningToken(morningId, morningSecret) {
     }));
   
     try {
-      // Use the proxy to avoid CORS issues
-      const response = await fetch("http://localhost:3001/morning/api/v1/account/token", {
+      // Use the updated API path
+      const response = await fetch("/api/morning/api/v1/account/token", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -1171,8 +1306,8 @@ export async function getMorningToken(morningId, morningSecret) {
   
       console.log("Morning invoice payload:", JSON.stringify(payload));
   
-      // Use the proxy to avoid CORS issues
-      const response = await fetch("http://localhost:3001/morning/api/v1/documents", {
+      // Use the updated API path
+      const response = await fetch("/api/morning/api/v1/documents", {
         method: "POST",
         headers: {
           "Authorization": token,
@@ -1271,8 +1406,8 @@ export async function getMorningToken(morningId, morningSecret) {
   
       console.log("Morning receipt payload:", JSON.stringify(payload));
   
-      // Use the proxy to avoid CORS issues
-      const response = await fetch("http://localhost:3001/morning/api/v1/documents", {
+      // Use the updated API path
+      const response = await fetch("/api/morning/api/v1/documents", {
         method: "POST",
         headers: {
           "Authorization": token,
@@ -1315,7 +1450,7 @@ export async function getMorningToken(morningId, morningSecret) {
   
     try {
       // First get client email
-      const clientResponse = await fetch(`http://localhost:3001/morning/api/v1/clients/${clientId}`, {
+      const clientResponse = await fetch(`/api/morning/api/v1/clients/${clientId}`, {
         method: "GET",
         headers: {
           "Authorization": token
@@ -1338,7 +1473,7 @@ export async function getMorningToken(morningId, morningSecret) {
         'היי, מצ״ב דרישת תשלום (:' :
         'היי, מצ״ב קבלה (:';
   
-      const emailResponse = await fetch(`http://localhost:3001/morning/api/v1/documents/${documentId}/distribute`, {
+      const emailResponse = await fetch(`/api/morning/api/v1/documents/${documentId}/distribute`, {
         method: "POST",
         headers: {
           "Authorization": token,
@@ -1368,223 +1503,315 @@ export async function getMorningToken(morningId, morningSecret) {
 
 ```js
 /**
- * Fetch client list from Notion database
- * @param {string} notionApiKey - Your Notion API key
- * @param {string} databaseId - ID of the Notion database
- * @returns {Promise<string[]>} Array of client names
+ * Get Morning API token
+ * @param {string} morningId - Your Morning API ID
+ * @param {string} morningSecret - Your Morning API secret
+ * @returns {Promise<string>} Bearer token
  */
-export async function fetchClientsFromNotion(notionApiKey, databaseId) {
-    console.log("Fetching clients from Notion...");
-    console.log("Database ID:", databaseId);
+export async function getMorningToken(morningId, morningSecret) {
+  console.log("Getting Morning API token...");
+  console.log("Using Morning ID:", morningId);
+  console.log("Payload:", JSON.stringify({
+    id: morningId,
+    secret: "***" // Don't log the actual secret for security reasons
+  }));
+
+  try {
+    // Use the updated API path
+    const response = await fetch("/api/morning/api/v1/account/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        id: morningId,
+        secret: morningSecret
+      })
+    });
+
+    console.log("Morning API token request status:", response.status);
     
-    const headers = {
-      "Authorization": `Bearer ${notionApiKey}`,
-      "Content-Type": "application/json",
-      "Notion-Version": "2022-06-28"
-    };
-  
-    try {
-      // Query the database to get all records
-      console.log("Sending request to Notion API via proxy...");
-      const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}/query`, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify({
-          page_size: 100, // Adjust based on your needs
-        })
-      });
-  
-      console.log("Notion API response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Notion API error response:", errorText);
-        throw new Error(`Notion API responded with status: ${response.status}`);
-      }
-  
-      const data = await response.json();
-      console.log("Received data from Notion, pages:", data.results.length);
-      
-      // Log the structure of the first result to help debug property access
-      if (data.results.length > 0) {
-        console.log("First result properties:", JSON.stringify(data.results[0].properties, null, 2));
-      }
-      
-      // Extract unique client names from the "שולם ע״י" property
-      const clientSet = new Set();
-      
-      data.results.forEach(page => {
-        // Make sure to match the exact property name and type from your database
-        if (page.properties["שולם ע״י"] && 
-            page.properties["שולם ע״י"].select && 
-            page.properties["שולם ע״י"].select.name) {
-          clientSet.add(page.properties["שולם ע״י"].select.name);
-        }
-      });
-      
-      console.log("Extracted client names:", Array.from(clientSet));
-      
-      // Convert set to array and sort alphabetically
-      return Array.from(clientSet).sort();
-    } catch (error) {
-      console.error("Error fetching clients from Notion:", error);
-      throw error;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Morning API error response:", errorText);
+      throw new Error(`Failed to get Morning token: ${response.status}`);
     }
+
+    const data = await response.json();
+    console.log("Morning token obtained successfully");
+    return "Bearer " + data.token;
+  } catch (error) {
+    console.error("Error getting Morning token:", error);
+    throw error;
   }
-  
-  /**
-   * Get Notion database schema to verify property names and types
-   * @param {string} notionApiKey - Your Notion API key
-   * @param {string} databaseId - ID of the Notion database
-   * @returns {Promise<Object>} Database schema
-   */
-//   export async function getNotionDatabaseSchema(notionApiKey, databaseId) {
-//     console.log("Getting Notion database schema...");
-    
-//     const headers = {
-//       "Authorization": `Bearer ${notionApiKey}`,
-//       "Notion-Version": "2022-06-28"
-//     };
-  
-//     try {
-//       const response = await fetch(`http://localhost:3001/notion/v1/databases/${databaseId}`, {
-//         method: "GET",
-//         headers: headers
-//       });
-      
-//       if (!response.ok) {
-//         const errorText = await response.text();
-//         console.error("Notion API error response:", errorText);
-//         throw new Error(`Failed to get database schema: ${response.status}`);
-//       }
-      
-//       const data = await response.json();
-//       console.log("Database schema properties:", JSON.stringify(data.properties, null, 2));
-//       return data;
-//     } catch (error) {
-//       console.error("Error getting database schema:", error);
-//       throw error;
-//     }
-//   }
-  
-  /**
-   * Create a new invoice/receipt document and record in Notion
-   * @param {Object} documentData - Invoice or receipt data
-   * @param {string} notionApiKey - Your Notion API key
-   * @param {string} databaseId - ID of the Notion database
-   * @returns {Promise<Object>} Created page data
-   */
-  export async function createNotionRecord(documentData, notionApiKey, databaseId) {
-    console.log("Creating Notion record...");
-    console.log("Database ID:", databaseId);
-    console.log("Document Type:", documentData.documentType);
-    console.log("Document Data:", JSON.stringify({
-      income: documentData.income,
-      client: documentData.client,
-      amount: documentData.amount,
-      paymentMethod: documentData.paymentMethod,
-      date: documentData.date
-    }));
-  
-    const headers = {
-      "Authorization": `Bearer ${notionApiKey}`,
-      "Content-Type": "application/json",
-      "Notion-Version": "2022-06-28"
-    };
-  
-    try {
-      const { income, client, amount, paymentMethod, date, documentType } = documentData;
-      
-      // Check for required fields
-      if (!income || !client || !amount || !paymentMethod || !date) {
-        console.error("Missing required fields for Notion record");
-        throw new Error("Missing required fields for Notion record");
+}
+
+/**
+ * Create an invoice in Morning (Green Invoice)
+ * @param {Object} invoiceData - Invoice data
+ * @param {string} morningId - Your Morning API ID
+ * @param {string} morningSecret - Your Morning API secret
+ * @returns {Promise<Object>} Created invoice data
+ */
+export async function createMorningInvoice(invoiceData, morningId, morningSecret) {
+  console.log("Creating Morning invoice...");
+
+  try {
+    // Get token first
+    const token = await getMorningToken(morningId, morningSecret);
+
+    // Map payment method to Morning API values
+    let paymentType = 0;
+    switch (invoiceData.paymentMethod) {
+      case "העברה": paymentType = 4; break;
+      case "אפליקציית תשלום": paymentType = 10; break;
+      case "מזומן": paymentType = 1; break;
+      case "צ׳ק": paymentType = 2; break;
+      default: paymentType = 4;
+    }
+
+    // Map payment app to Morning API values
+    let appType = null;
+    if (invoiceData.paymentMethod === "אפליקציית תשלום") {
+      switch (invoiceData.application) {
+        case "ביט": appType = 1; break;
+        case "פיי-בוקס": appType = 3; break;
+        default: appType = "";
       }
-      
-      // Prepare the request body for creating a new page
-      const requestBody = {
-        parent: {
-          database_id: databaseId
+    }
+
+    // Create the invoice
+    const payload = {
+      description: invoiceData.description,
+      type: 300, // Invoice type
+      vatType: 0,
+      lang: "he",
+      currency: "ILS",
+      remarks: 'פרטים להעברה: בנק 20, סניף 574, חשבון 113862',
+      client: {
+        name: invoiceData.client,
+        add: true,
+        self: false,
+      },
+      rounding: false,
+      income: [
+        {
+          description: invoiceData.description,
+          quantity: 1,
+          price: parseFloat(invoiceData.amount),
+          currency: "ILS",
+          vatType: 0
         },
-        properties: {
-          "הכנסה": {
-            title: [
-              {
-                text: {
-                  content: income
-                }
-              }
-            ]
-          },
-          "סכום": {
-            number: parseFloat(amount)
-          },
-          "שולם ע״י": {
-            select: {
-              name: client
-            }
-          },
-          "אמצעי": {
-            select: {
-              name: paymentMethod
-            }
-          },
-          "תאריך": {
-            date: {
-              start: date
-            }
-          }
-        }
-      };
-      
-      // Add document-specific properties
-      if (documentType === 'invoice') {
-        requestBody.properties["חשבונית"] = {
-          checkbox: true
-        };
-        requestBody.properties["חשבונית נשלחה"] = {
-          date: {
-            start: date
-          }
-        };
-      } else if (documentType === 'receipt') {
-        requestBody.properties["קבלה"] = {
-          checkbox: true
-        };
-        requestBody.properties["תאריך קבלה"] = {
-          date: {
-            start: date
-          }
-        };
-      }
-      
-      console.log("Notion request body:", JSON.stringify(requestBody, null, 2));
-      
-      // Use the proxy server URL
-      console.log("Sending request to Notion API via proxy...");
-      const response = await fetch("http://localhost:3001/notion/v1/pages", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log("Notion API response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Notion API error response:", errorText);
-        throw new Error(`Failed to create Notion record: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log("Successfully created Notion page. ID:", data.id);
-      return data;
-    } catch (error) {
-      console.error("Error creating Notion record:", error);
-      throw error;
+      ],
+      payment: [
+        {
+          type: paymentType,
+          price: parseFloat(invoiceData.amount),
+          currency: "ILS",
+          date: invoiceData.date,
+          appType: appType,
+        },
+      ]
+    };
+
+    // If sending email, add content
+    if (invoiceData.sendEmail) {
+      payload.emailContent = 'פרטים להעברה: בנק 20, סניף 574, חשבון 113862';
     }
+
+    console.log("Morning invoice payload:", JSON.stringify(payload));
+
+    // Use the updated API path
+    const response = await fetch("/api/morning/api/v1/documents", {
+      method: "POST",
+      headers: {
+        "Authorization": token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Morning API error response:", errorText);
+      throw new Error(`Failed to create Morning invoice: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Morning invoice created successfully:", data);
+
+    // Send email if requested
+    if (invoiceData.sendEmail && data.client && data.client.id && data.id) {
+      await sendMorningEmail(data.id, data.client.id, "חשבונית", token);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error creating Morning invoice:", error);
+    throw error;
   }
-  
+}
+
+/**
+ * Create a receipt in Morning (Green Invoice)
+ * @param {Object} receiptData - Receipt data
+ * @param {string} morningId - Your Morning API ID
+ * @param {string} morningSecret - Your Morning API secret
+ * @returns {Promise<Object>} Created receipt data
+ */
+export async function createMorningReceipt(receiptData, morningId, morningSecret) {
+  console.log("Creating Morning receipt...");
+
+  try {
+    // Get token first
+    const token = await getMorningToken(morningId, morningSecret);
+
+    // Map payment method to Morning API values
+    let paymentType = 0;
+    switch (receiptData.paymentMethod) {
+      case "העברה": paymentType = 4; break;
+      case "אפליקציית תשלום": paymentType = 10; break;
+      case "מזומן": paymentType = 1; break;
+      case "צ׳ק": paymentType = 2; break;
+      default: paymentType = 4;
+    }
+
+    // Map payment app to Morning API values
+    let appType = null;
+    if (receiptData.paymentMethod === "אפליקציית תשלום") {
+      switch (receiptData.application) {
+        case "ביט": appType = 1; break;
+        case "פיי-בוקס": appType = 3; break;
+        default: appType = "";
+      }
+    }
+
+    // Create the receipt
+    const payload = {
+      description: receiptData.description,
+      type: 400, // Receipt type
+      vatType: 0,
+      lang: "he",
+      currency: "ILS",
+      client: {
+        name: receiptData.client,
+        add: true,
+        self: false,
+      },
+      rounding: false,
+      income: [
+        {
+          description: receiptData.description,
+          quantity: 1,
+          price: parseFloat(receiptData.amount),
+          currency: "ILS",
+          vatType: 0
+        },
+      ],
+      payment: [
+        {
+          type: paymentType,
+          price: parseFloat(receiptData.amount),
+          currency: "ILS",
+          date: receiptData.date,
+          appType: appType,
+        },
+      ]
+    };
+
+    console.log("Morning receipt payload:", JSON.stringify(payload));
+
+    // Use the updated API path
+    const response = await fetch("/api/morning/api/v1/documents", {
+      method: "POST",
+      headers: {
+        "Authorization": token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Morning API error response:", errorText);
+      throw new Error(`Failed to create Morning receipt: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Morning receipt created successfully:", data);
+
+    // Send email if requested
+    if (receiptData.sendEmail && data.client && data.client.id && data.id) {
+      await sendMorningEmail(data.id, data.client.id, "קבלה", token);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error creating Morning receipt:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send email with document from Morning
+ * @param {string} documentId - Document ID
+ * @param {string} clientId - Client ID
+ * @param {string} documentType - Document type ("חשבונית" or "קבלה")
+ * @param {string} token - Morning API token
+ * @returns {Promise<Object>} Email response
+ */
+async function sendMorningEmail(documentId, clientId, documentType, token) {
+  console.log(`Sending ${documentType} email...`);
+
+  try {
+    // First get client email
+    const clientResponse = await fetch(`/api/morning/api/v1/clients/${clientId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": token
+      }
+    });
+
+    if (!clientResponse.ok) {
+      throw new Error(`Failed to get client details: ${clientResponse.status}`);
+    }
+
+    const clientData = await clientResponse.json();
+    const clientEmail = clientData.emails[0];
+
+    if (!clientEmail) {
+      throw new Error("Client has no email address");
+    }
+
+    // Send the email
+    const emailSubject = documentType === "חשבונית" ? 
+      'היי, מצ״ב דרישת תשלום (:' :
+      'היי, מצ״ב קבלה (:';
+
+    const emailResponse = await fetch(`/api/morning/api/v1/documents/${documentId}/distribute`, {
+      method: "POST",
+      headers: {
+        "Authorization": token,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        'remarks': emailSubject,
+        'recipients': [clientEmail]
+      })
+    });
+
+    if (!emailResponse.ok) {
+      throw new Error(`Failed to send email: ${emailResponse.status}`);
+    }
+
+    const emailData = await emailResponse.json();
+    console.log("Email sent successfully:", emailData);
+    return emailData;
+  } catch (error) {
+    console.error("Error sending email:", error);
+    throw error;
+  }
+}
 ```
 
 # src/reportWebVitals.js
@@ -1627,6 +1854,28 @@ module.exports = {
       extend: {},
     },
     plugins: [],
+  }
+```
+
+# vercel.json
+
+```json
+{
+    "version": 2,
+    "routes": [
+      {
+        "src": "/api/notion/(.*)",
+        "dest": "/api/notion.js"
+      },
+      {
+        "src": "/api/morning/(.*)",
+        "dest": "/api/morning.js"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/$1"
+      }
+    ]
   }
 ```
 

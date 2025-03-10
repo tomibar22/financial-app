@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { fetchClientsFromNotion, createNotionRecord } from './notionApi';
+import { 
+  fetchClientsFromNotion, 
+  createNotionRecord, 
+  findNotionPage, 
+  updateNotionPageWithReceipt 
+} from './notionApi';
 import { createMorningInvoice, createMorningReceipt } from './morningApi';
 import { NOTION_API_KEY, NOTION_DATABASE_ID, MORNING_ID, MORNING_SECRET } from './config';
 import './FinancialApp.css';
@@ -221,21 +226,41 @@ const FinancialApp = () => {
         throw new Error(`שגיאה ביצירת קבלה ב-Green Invoice: ${morningError.message}`);
       }
       
-      // Step 2: Create Notion record
+      // Step 2: Find existing Notion page or create new one
       try {
-        console.log("Creating record in Notion...");
-        const notionResult = await createNotionRecord(
-          {
-            ...formData,
-            documentType: 'receipt',
-          },
+        console.log("Searching for existing Notion page...");
+        const existingPageId = await findNotionPage(
           NOTION_API_KEY,
-          NOTION_DATABASE_ID
+          NOTION_DATABASE_ID,
+          formData.income,
+          formData.client
         );
-        console.log("Notion record created:", notionResult);
+        
+        if (existingPageId) {
+          // Update existing page with receipt information
+          console.log("Updating existing Notion page with receipt info...");
+          await updateNotionPageWithReceipt(
+            NOTION_API_KEY,
+            existingPageId,
+            formData.date
+          );
+          console.log("Existing Notion page updated with receipt info");
+        } else {
+          // Create new page if no existing page found
+          console.log("No existing page found, creating new Notion record...");
+          await createNotionRecord(
+            {
+              ...formData,
+              documentType: 'receipt',
+            },
+            NOTION_API_KEY,
+            NOTION_DATABASE_ID
+          );
+          console.log("New Notion record created");
+        }
       } catch (notionError) {
-        console.error("Error creating Notion record:", notionError);
-        throw new Error(`שגיאה ביצירת רשומה ב-Notion: ${notionError.message}`);
+        console.error("Error handling Notion record:", notionError);
+        throw new Error(`שגיאה בטיפול ברשומה ב-Notion: ${notionError.message}`);
       }
       
       // Success message
@@ -365,7 +390,7 @@ const FinancialApp = () => {
             />
           </div>
           
-{formData.paymentMethod === 'אפליקציית תשלום' && (
+          {formData.paymentMethod === 'אפליקציית תשלום' && (
             <div className="form-group">
               <label className="form-label">אפליקציה:</label>
               <select
