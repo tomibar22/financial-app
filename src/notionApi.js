@@ -10,67 +10,49 @@ export async function fetchClientsFromNotion(notionApiKey, databaseId) {
   console.log("Fetching clients from Notion...");
 
   try {
-    // Use a Set to track unique clients as we go
-    const uniqueClientsSet = new Set();
-    let hasMore = true;
-    let startCursor = undefined;
-    let pageSize = 100; // Maximum allowed by Notion API
-    
-    while (hasMore) {
-      console.log(`Fetching page of clients ${startCursor ? 'after cursor' : 'from start'}...`);
-      
-      const requestBody = {
-        page_size: pageSize,
+    // Simplified approach - just get the most recent 250 entries
+    // This is a good balance between speed and comprehensiveness
+    const response = await fetch("/api/notion/v1/databases/" + databaseId + "/query", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + notionApiKey,
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+      },
+      body: JSON.stringify({
+        page_size: 250, // Get a good number of recent entries
         sorts: [
           {
-            property: "שולם ע״י",
-            direction: "ascending"
+            timestamp: "created_time",
+            direction: "descending" // Get most recent entries
           }
         ]
-      };
-      
-      // Add start_cursor if we're not on the first page
-      if (startCursor) {
-        requestBody.start_cursor = startCursor;
-      }
-      
-      const response = await fetch("/api/notion/v1/databases/" + databaseId + "/query", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + notionApiKey,
-          "Content-Type": "application/json",
-          "Notion-Version": "2022-06-28"
-        },
-        body: JSON.stringify(requestBody)
-      });
+      })
+    });
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch clients: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract client names and add to set
-      data.results.forEach(page => {
-        const clientProp = page.properties["שולם ע״י"];
-        if (clientProp && clientProp.select && clientProp.select.name) {
-          uniqueClientsSet.add(clientProp.select.name);
-        }
-      });
-      
-      // Check if there are more pages to fetch
-      hasMore = data.has_more;
-      startCursor = data.next_cursor;
-      
-      console.log(`Added clients from page, total unique so far: ${uniqueClientsSet.size}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch clients: ${response.status}`);
     }
+
+    const data = await response.json();
     
-    // Convert Set to Array and sort alphabetically
+    // Use a Set for deduplication
+    const uniqueClientsSet = new Set();
+    
+    // Extract client names
+    data.results.forEach(page => {
+      const clientProp = page.properties["שולם ע״י"];
+      if (clientProp && clientProp.select && clientProp.select.name) {
+        uniqueClientsSet.add(clientProp.select.name);
+      }
+    });
+    
+    // Convert Set to Array and sort alphabetically (using Hebrew locale)
     const uniqueClients = Array.from(uniqueClientsSet).sort((a, b) => 
       a.localeCompare(b, 'he')
     );
     
-    console.log(`Completed fetching clients. Total: ${uniqueClients.length} unique clients`);
+    console.log(`Fetched ${uniqueClients.length} unique clients`);
     return uniqueClients;
   } catch (error) {
     console.error("Error fetching clients from Notion:", error);

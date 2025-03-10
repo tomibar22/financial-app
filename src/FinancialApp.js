@@ -34,33 +34,75 @@ const FinancialApp = () => {
   }, []);
 
   
-  // Fetch clients from Notion database
+  // Fetch clients from Notion database with local storage caching
   useEffect(() => {
     const getClients = async () => {
       try {
         setLoadingClients(true);
         setClientError(null);
         
-        // Use the real API call
-        const clientList = await fetchClientsFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID);
-        setClients(clientList);
-        setFilteredClients(clientList);
+        // First check if we have a cached version in localStorage
+        const cachedClients = localStorage.getItem('financialAppClients');
+        const cachedTimestamp = localStorage.getItem('financialAppClientsTimestamp');
+        const now = new Date().getTime();
         
+        // Use cached clients initially if available and not too old (less than 1 day old)
+        if (cachedClients && cachedTimestamp && (now - parseInt(cachedTimestamp) < 24 * 60 * 60 * 1000)) {
+          const parsedClients = JSON.parse(cachedClients);
+          setClients(parsedClients);
+          setFilteredClients(parsedClients);
+          console.log("Using cached client list:", parsedClients.length, "clients");
+          
+          // Continue fetching in the background to update the cache
+          fetchClientsFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID)
+            .then(freshClientList => {
+              // Update cache with new client list
+              localStorage.setItem('financialAppClients', JSON.stringify(freshClientList));
+              localStorage.setItem('financialAppClientsTimestamp', now.toString());
+              
+              // Update state if component is still mounted
+              setClients(freshClientList);
+              setFilteredClients(freshClientList);
+              console.log("Updated client list in background:", freshClientList.length, "clients");
+            })
+            .catch(err => console.error("Background client fetch error:", err));
+        } else {
+          // No valid cache, fetch from API
+          const clientList = await fetchClientsFromNotion(NOTION_API_KEY, NOTION_DATABASE_ID);
+          
+          // Cache the results
+          localStorage.setItem('financialAppClients', JSON.stringify(clientList));
+          localStorage.setItem('financialAppClientsTimestamp', now.toString());
+          
+          // Update state
+          setClients(clientList);
+          setFilteredClients(clientList);
+        }
       } catch (error) {
         setClientError(`שגיאה בטעינת רשימת לקוחות: ${error.message}`);
         console.error("Error fetching clients:", error);
         
-        // Fallback to mock data in case of error
-        const mockClients = [
-          "לקוח א",
-          "לקוח ב",
-          "לקוח ג",
-          "פלוני אלמוני",
-          "חברה בע״מ",
-          "עסק קטן"
-        ];
-        setClients(mockClients);
-        setFilteredClients(mockClients);
+        // Try to use cached clients even if they're old
+        const cachedClients = localStorage.getItem('financialAppClients');
+        if (cachedClients) {
+          const parsedClients = JSON.parse(cachedClients);
+          setClients(parsedClients);
+          setFilteredClients(parsedClients);
+          console.log("Using cached client list after error");
+          setClientError(`שגיאה בטעינת רשימת לקוחות עדכנית. משתמש ברשימה מהזיכרון.`);
+        } else {
+          // Final fallback to mock data if no cache is available
+          const mockClients = [
+            "לקוח א",
+            "לקוח ב",
+            "לקוח ג",
+            "פלוני אלמוני",
+            "חברה בע״מ",
+            "עסק קטן"
+          ];
+          setClients(mockClients);
+          setFilteredClients(mockClients);
+        }
       } finally {
         setLoadingClients(false);
       }
