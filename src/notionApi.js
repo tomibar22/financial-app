@@ -175,7 +175,81 @@ export async function createNotionRecord(recordData, notionApiKey, databaseId) {
   console.log("Creating new Notion record...");
 
   try {
-    // Create the new record
+    // Format date properly
+    const formattedDate = recordData.date ? new Date(recordData.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    // Create properties object with required fields
+    const properties = {
+      "הכנסה": {
+        title: [
+          {
+            text: {
+              content: recordData.income || ""
+            }
+          }
+        ]
+      }
+    };
+    
+    // Add other properties only if they have values
+    if (recordData.amount) {
+      properties["סכום"] = {
+        number: parseFloat(recordData.amount)
+      };
+    }
+    
+    if (recordData.client) {
+      properties["שולם ע״י"] = {
+        select: {
+          name: recordData.client
+        }
+      };
+    }
+    
+    if (recordData.paymentMethod) {
+      properties["אמצעי"] = {
+        select: {
+          name: recordData.paymentMethod
+        }
+      };
+    }
+    
+    if (formattedDate) {
+      properties["תאריך"] = {
+        date: {
+          start: formattedDate
+        }
+      };
+      
+      properties["חשבונית נשלחה"] = {
+        date: {
+          start: formattedDate
+        }
+      };
+    }
+    
+    // Document type properties
+    properties["חשבונית"] = {
+      checkbox: recordData.documentType === 'invoice'
+    };
+    
+    properties["קבלה"] = {
+      checkbox: recordData.documentType === 'receipt'
+    };
+    
+    if (recordData.documentType === 'receipt' && formattedDate) {
+      properties["תאריך קבלה"] = {
+        date: {
+          start: formattedDate
+        }
+      };
+    }
+    
+    properties["דו״ח"] = {
+      checkbox: true
+    };
+    
+    // Create the record with carefully formatted properties
     const response = await fetch("/api/notion/v1/pages", {
       method: "POST",
       headers: {
@@ -187,58 +261,13 @@ export async function createNotionRecord(recordData, notionApiKey, databaseId) {
         parent: {
           database_id: databaseId
         },
-        properties: {
-          "הכנסה": {
-            title: [
-              {
-                text: {
-                  content: recordData.income
-                }
-              }
-            ]
-          },
-          "סכום": {
-            number: parseFloat(recordData.amount)
-          },
-          "שולם ע״י": {
-            select: {
-              name: recordData.client
-            }
-          },
-          "אמצעי": {
-            select: {
-              name: recordData.paymentMethod
-            }
-          },
-          "תאריך": {
-            date: {
-              start: recordData.date
-            }
-          },
-          "חשבונית נשלחה": {
-            date: {
-              start: recordData.date
-            }
-          },
-          "חשבונית": {
-            checkbox: recordData.documentType === 'invoice'
-          },
-          "קבלה": {
-            checkbox: recordData.documentType === 'receipt'
-          },
-          "תאריך קבלה": recordData.documentType === 'receipt' ? {
-            date: {
-              start: recordData.date
-            }
-          } : null,
-          "דו״ח": {
-            checkbox: true
-          }
-        }
+        properties: properties
       })
     });
     
     if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Notion API error response:", errorData);
       throw new Error(`Failed to create Notion record: ${response.status}`);
     }
     
