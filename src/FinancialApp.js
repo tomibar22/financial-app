@@ -9,6 +9,26 @@ import { createMorningInvoice, createMorningReceipt } from './morningApi';
 import { NOTION_API_KEY, NOTION_DATABASE_ID, MORNING_ID, MORNING_SECRET } from './config';
 import './FinancialApp.css';
 
+/**
+ * Extract URL from text
+ * @param {string} text - Text that may contain a URL
+ * @returns {string|null} Extracted URL or null if not found
+ */
+function extractUrlFromText(text) {
+  if (!text) return null;
+  
+  // URL pattern matching
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = text.match(urlRegex);
+  
+  if (matches && matches.length > 0) {
+    // Return the first URL found in the text
+    return matches[0];
+  }
+  
+  return null;
+}
+
 const FinancialApp = () => {
   const [formData, setFormData] = useState({
     income: '',
@@ -223,14 +243,22 @@ const FinancialApp = () => {
         // Extract document link
         if (morningResult) {
           if (morningResult.url) {
-            // Set document link based on available URL
-            const link = morningResult.url.he || morningResult.url.en || morningResult.url.origin;
+            // Try to extract URLs from each field
+            const enUrl = morningResult.url.en ? extractUrlFromText(morningResult.url.en) : null;
+            const heUrl = morningResult.url.he ? extractUrlFromText(morningResult.url.he) : null;
+            const originUrl = morningResult.url.origin ? extractUrlFromText(morningResult.url.origin) : null;
+            
+            // Use the first available URL, prioritizing English
+            const link = enUrl || heUrl || originUrl;
+            
             if (link) {
               setDocumentLink(link);
+              console.log("Document link extracted:", link);
             }
           } else if (morningResult.id) {
             // Fallback to constructed URL
             setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
+            console.log("Fallback document link set using ID");
           }
         }
       } catch (morningError) {
@@ -300,14 +328,22 @@ const FinancialApp = () => {
         // Extract document link
         if (morningResult) {
           if (morningResult.url) {
-            // Set document link based on available URL
-            const link = morningResult.url.he || morningResult.url.en || morningResult.url.origin;
+            // Try to extract URLs from each field
+            const enUrl = morningResult.url.en ? extractUrlFromText(morningResult.url.en) : null;
+            const heUrl = morningResult.url.he ? extractUrlFromText(morningResult.url.he) : null;
+            const originUrl = morningResult.url.origin ? extractUrlFromText(morningResult.url.origin) : null;
+            
+            // Use the first available URL, prioritizing English
+            const link = enUrl || heUrl || originUrl;
+            
             if (link) {
               setDocumentLink(link);
+              console.log("Document link extracted:", link);
             }
           } else if (morningResult.id) {
             // Fallback to constructed URL
             setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
+            console.log("Fallback document link set using ID");
           }
         }
       } catch (morningError) {
