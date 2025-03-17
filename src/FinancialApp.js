@@ -38,6 +38,27 @@ function extractUrlFromText(text) {
   return null;
 }
 
+/**
+ * Create a short URL using TinyURL's API
+ * @param {string} longUrl - The long URL to shorten
+ * @returns {Promise<string>} The shortened URL or the original URL if shortening fails
+ */
+async function createTinyUrl(longUrl) {
+  try {
+    const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`);
+    if (response.ok) {
+      const shortUrl = await response.text();
+      console.log("Created TinyURL:", shortUrl);
+      return shortUrl;
+    }
+    console.warn("TinyURL creation failed, using original URL");
+    return longUrl;
+  } catch (error) {
+    console.error("Error creating TinyURL:", error);
+    return longUrl;
+  }
+}
+
 const FinancialApp = () => {
   const [formData, setFormData] = useState({
     income: '',
@@ -250,6 +271,8 @@ const FinancialApp = () => {
         console.log("Morning invoice created:", morningResult);
         
         // Extract document link
+        let originalLink = null;
+        
         if (morningResult) {
           if (morningResult.url) {
             // Try to extract URLs from each field
@@ -263,21 +286,26 @@ const FinancialApp = () => {
             const originIsShort = originUrl && originUrl.includes('mrnng.to');
             
             // Prioritize short URLs, then fall back to regular URLs
-            let link = null;
-            
-            if (enIsShort) link = enUrl;
-            else if (heIsShort) link = heUrl;
-            else if (originIsShort) link = originUrl;
-            else link = enUrl || heUrl || originUrl;
-            
-            if (link) {
-              setDocumentLink(link);
-              console.log("Document link extracted:", link, link.includes('mrnng.to') ? "(short format)" : "");
-            }
+            if (enIsShort) originalLink = enUrl;
+            else if (heIsShort) originalLink = heUrl;
+            else if (originIsShort) originalLink = originUrl;
+            else originalLink = enUrl || heUrl || originUrl;
           } else if (morningResult.id) {
             // Fallback to constructed URL
-            setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
-            console.log("Fallback document link set using ID");
+            originalLink = `https://greeninvoice.co.il/view/${morningResult.id}`;
+          }
+          
+          if (originalLink) {
+            // Create a TinyURL from the original link
+            try {
+              const shortLink = await createTinyUrl(originalLink);
+              setDocumentLink(shortLink);
+              console.log("TinyURL created for document:", shortLink);
+            } catch (tinyUrlError) {
+              console.error("Error creating TinyURL:", tinyUrlError);
+              setDocumentLink(originalLink);
+              console.log("Using original link:", originalLink);
+            }
           }
         }
       } catch (morningError) {
@@ -345,6 +373,8 @@ const FinancialApp = () => {
         console.log("Morning receipt created:", morningResult);
         
         // Extract document link
+        let originalLink = null;
+        
         if (morningResult) {
           if (morningResult.url) {
             // Try to extract URLs from each field
@@ -358,21 +388,26 @@ const FinancialApp = () => {
             const originIsShort = originUrl && originUrl.includes('mrnng.to');
             
             // Prioritize short URLs, then fall back to regular URLs
-            let link = null;
-            
-            if (enIsShort) link = enUrl;
-            else if (heIsShort) link = heUrl;
-            else if (originIsShort) link = originUrl;
-            else link = enUrl || heUrl || originUrl;
-            
-            if (link) {
-              setDocumentLink(link);
-              console.log("Document link extracted:", link, link.includes('mrnng.to') ? "(short format)" : "");
-            }
+            if (enIsShort) originalLink = enUrl;
+            else if (heIsShort) originalLink = heUrl;
+            else if (originIsShort) originalLink = originUrl;
+            else originalLink = enUrl || heUrl || originUrl;
           } else if (morningResult.id) {
             // Fallback to constructed URL
-            setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
-            console.log("Fallback document link set using ID");
+            originalLink = `https://greeninvoice.co.il/view/${morningResult.id}`;
+          }
+          
+          if (originalLink) {
+            // Create a TinyURL from the original link
+            try {
+              const shortLink = await createTinyUrl(originalLink);
+              setDocumentLink(shortLink);
+              console.log("TinyURL created for document:", shortLink);
+            } catch (tinyUrlError) {
+              console.error("Error creating TinyURL:", tinyUrlError);
+              setDocumentLink(originalLink);
+              console.log("Using original link:", originalLink);
+            }
           }
         }
       } catch (morningError) {
