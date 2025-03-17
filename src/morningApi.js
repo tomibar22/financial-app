@@ -49,6 +49,24 @@ export async function getMorningToken(morningId, morningSecret) {
 function copyToClipboard(text) {
   console.log("Copying to clipboard:", text);
   
+  // Try to use modern clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => console.log("Clipboard API: Copied to clipboard successfully"))
+      .catch(err => {
+        console.error("Clipboard API failed:", err);
+        fallbackCopyToClipboard(text);
+      });
+  } else {
+    fallbackCopyToClipboard(text);
+  }
+}
+
+/**
+ * Fallback method for copying to clipboard
+ * @param {string} text - Text to copy
+ */
+function fallbackCopyToClipboard(text) {
   // Create a temporary input element
   const input = document.createElement('input');
   input.style.position = 'fixed';
@@ -63,7 +81,7 @@ function copyToClipboard(text) {
   // Remove the temporary element
   document.body.removeChild(input);
   
-  console.log("Copied to clipboard successfully");
+  console.log("Fallback: Copied to clipboard successfully");
 }
 
 /**
@@ -72,10 +90,24 @@ function copyToClipboard(text) {
  * @returns {string|null} Document link or null if not found
  */
 function getDocumentLink(documentData) {
-  // Check if the response contains a document link
+  // Check if the response contains url information
+  if (documentData && documentData.url) {
+    // First check for Hebrew URL
+    if (documentData.url.he) {
+      return documentData.url.he;
+    }
+    // Then check for English URL
+    else if (documentData.url.en) {
+      return documentData.url.en;
+    }
+    // Then check for origin URL
+    else if (documentData.url.origin) {
+      return documentData.url.origin;
+    }
+  }
+  
+  // Fallback: If no URL is found but we have the document ID, construct a URL
   if (documentData && documentData.id) {
-    // Construct the link to the document using the document ID
-    // Format: https://greeninvoice.co.il/view/[documentId]
     return `https://greeninvoice.co.il/view/${documentData.id}`;
   }
   
