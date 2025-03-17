@@ -26,6 +26,7 @@ const FinancialApp = () => {
   const [loadingClients, setLoadingClients] = useState(true);
   const [message, setMessage] = useState('');
   const [clientError, setClientError] = useState(null);
+  const [documentLink, setDocumentLink] = useState('');
   
   // Initialize date to today when component mounts
   useEffect(() => {
@@ -165,11 +166,37 @@ const FinancialApp = () => {
     return true;
   };
   
+  const copyLinkToClipboard = () => {
+    if (documentLink) {
+      navigator.clipboard.writeText(documentLink)
+        .then(() => {
+          setMessage('הקישור הועתק בהצלחה!');
+        })
+        .catch(err => {
+          console.error('Failed to copy link:', err);
+          setMessage('לא ניתן להעתיק את הקישור - אנא העתק באופן ידני');
+        });
+    }
+  };
+  
+  const resetForm = () => {
+    setFormData({
+      income: '',
+      client: '',
+      amount: '',
+      paymentMethod: '',
+      date: new Date().toISOString().split('T')[0],
+      application: ''
+    });
+    setDocumentLink('');
+  };
+  
   const createInvoice = async (sendEmail = false) => {
     if (!validateForm()) return;
     
     setLoading(true);
     setMessage('');
+    setDocumentLink('');
     
     try {
       console.log("Starting invoice creation process");
@@ -192,6 +219,20 @@ const FinancialApp = () => {
           MORNING_SECRET
         );
         console.log("Morning invoice created:", morningResult);
+        
+        // Extract document link
+        if (morningResult) {
+          if (morningResult.url) {
+            // Set document link based on available URL
+            const link = morningResult.url.he || morningResult.url.en || morningResult.url.origin;
+            if (link) {
+              setDocumentLink(link);
+            }
+          } else if (morningResult.id) {
+            // Fallback to constructed URL
+            setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
+          }
+        }
       } catch (morningError) {
         console.error("Error creating Morning invoice:", morningError);
         throw new Error(`שגיאה ביצירת חשבונית ב-Green Invoice: ${morningError.message}`);
@@ -219,15 +260,6 @@ const FinancialApp = () => {
         'חשבונית נוצרה ונשלחה בהצלחה!' : 
         'חשבונית נוצרה בהצלחה!');
       
-      // Clear form
-      setFormData({
-        income: '',
-        client: '',
-        amount: '',
-        paymentMethod: '',
-        date: new Date().toISOString().split('T')[0],
-        application: ''
-      });
     } catch (error) {
       console.error("Error in createInvoice:", error);
       setMessage('שגיאה: ' + error.message);
@@ -241,6 +273,7 @@ const FinancialApp = () => {
     
     setLoading(true);
     setMessage('');
+    setDocumentLink('');
     
     try {
       console.log("Starting receipt creation process");
@@ -263,6 +296,20 @@ const FinancialApp = () => {
           MORNING_SECRET
         );
         console.log("Morning receipt created:", morningResult);
+        
+        // Extract document link
+        if (morningResult) {
+          if (morningResult.url) {
+            // Set document link based on available URL
+            const link = morningResult.url.he || morningResult.url.en || morningResult.url.origin;
+            if (link) {
+              setDocumentLink(link);
+            }
+          } else if (morningResult.id) {
+            // Fallback to constructed URL
+            setDocumentLink(`https://greeninvoice.co.il/view/${morningResult.id}`);
+          }
+        }
       } catch (morningError) {
         console.error("Error creating Morning receipt:", morningError);
         throw new Error(`שגיאה ביצירת קבלה ב-Green Invoice: ${morningError.message}`);
@@ -310,15 +357,6 @@ const FinancialApp = () => {
         'קבלה נוצרה ונשלחה בהצלחה!' : 
         'קבלה נוצרה בהצלחה!');
       
-      // Clear form
-      setFormData({
-        income: '',
-        client: '',
-        amount: '',
-        paymentMethod: '',
-        date: new Date().toISOString().split('T')[0],
-        application: ''
-      });
     } catch (error) {
       console.error("Error in createReceipt:", error);
       setMessage('שגיאה: ' + error.message);
@@ -341,6 +379,33 @@ const FinancialApp = () => {
         {clientError && (
           <div className="message message-error">
             {clientError}
+          </div>
+        )}
+        
+        {documentLink && (
+          <div className="document-link-container">
+            <div className="document-link-box">
+              <a 
+                href={documentLink} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="document-link"
+              >
+                צפה במסמך
+              </a>
+              <button 
+                onClick={copyLinkToClipboard} 
+                className="button button-copy-link"
+              >
+                העתק קישור
+              </button>
+              <button 
+                onClick={resetForm} 
+                className="button button-new-document"
+              >
+                מסמך חדש
+              </button>
+            </div>
           </div>
         )}
         
@@ -449,43 +514,45 @@ const FinancialApp = () => {
           )}
         </div>
         
-        <div className="button-container">
-          <div className="button-group">
-            <button
-              onClick={() => createReceipt(false)}
-              disabled={loading}
-              className="button button-receipt"
-            >
-              {loading ? 'מעבד...' : 'הפקת קבלה'}
-            </button>
+        {!documentLink && (
+          <div className="button-container">
+            <div className="button-group">
+              <button
+                onClick={() => createReceipt(false)}
+                disabled={loading}
+                className="button button-receipt"
+              >
+                {loading ? 'מעבד...' : 'הפקת קבלה'}
+              </button>
+              
+              <button
+                onClick={() => createReceipt(true)}
+                disabled={loading}
+                className="button button-receipt-send"
+              >
+                {loading ? 'מעבד...' : 'הפקת קבלה + שליחה'}
+              </button>
+            </div>
             
-            <button
-              onClick={() => createReceipt(true)}
-              disabled={loading}
-              className="button button-receipt-send"
-            >
-              {loading ? 'מעבד...' : 'הפקת קבלה + שליחה'}
-            </button>
+            <div className="button-group">
+              <button
+                onClick={() => createInvoice(false)}
+                disabled={loading}
+                className="button button-invoice"
+              >
+                {loading ? 'מעבד...' : 'הפקת דרישת תשלום'}
+              </button>
+              
+              <button
+                onClick={() => createInvoice(true)}
+                disabled={loading}
+                className="button button-invoice-send"
+              >
+                {loading ? 'מעבד...' : 'הפקת דרישת תשלום + שליחה'}
+              </button>
+            </div>
           </div>
-          
-          <div className="button-group">
-            <button
-              onClick={() => createInvoice(false)}
-              disabled={loading}
-              className="button button-invoice"
-            >
-              {loading ? 'מעבד...' : 'הפקת דרישת תשלום'}
-            </button>
-            
-            <button
-              onClick={() => createInvoice(true)}
-              disabled={loading}
-              className="button button-invoice-send"
-            >
-              {loading ? 'מעבד...' : 'הפקת דרישת תשלום + שליחה'}
-            </button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

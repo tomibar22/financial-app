@@ -171,3 +171,53 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #9ca3af;
   font-style: italic;
 }
+
+/* Add these styles to the end of your FinancialApp.css file */
+
+.document-link-container {
+  margin: 1.5rem 0;
+}
+
+.document-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background-color: #1b2434;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #3b82f6;
+}
+
+.document-link {
+  display: block;
+  text-align: center;
+  padding: 0.75rem;
+  background-color: #1e3a8a;
+  color: #dbeafe;
+  border-radius: 0.375rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.document-link:hover {
+  background-color: #1e40af;
+}
+
+.button-copy-link {
+  background-color: #065f46;
+  color: #d1fae5;
+}
+
+.button-copy-link:hover {
+  background-color: #047857;
+}
+
+.button-new-document {
+  background-color: #4b5563;
+  color: #f9fafb;
+}
+
+.button-new-document:hover {
+  background-color: #6b7280;
+}
