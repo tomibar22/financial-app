@@ -10,14 +10,23 @@ import { NOTION_API_KEY, NOTION_DATABASE_ID, MORNING_ID, MORNING_SECRET } from '
 import './FinancialApp.css';
 
 /**
- * Extract URL from text
+ * Extract URL from text with preference for short mrnng.to links
  * @param {string} text - Text that may contain a URL
  * @returns {string|null} Extracted URL or null if not found
  */
 function extractUrlFromText(text) {
   if (!text) return null;
   
-  // URL pattern matching
+  // Look specifically for mrnng.to URLs first
+  const shortUrlRegex = /(https?:\/\/mrnng\.to\/[^\s]+)/g;
+  const shortMatches = text.match(shortUrlRegex);
+  
+  if (shortMatches && shortMatches.length > 0) {
+    // Return the first mrnng.to URL found
+    return shortMatches[0];
+  }
+  
+  // If no short URL found, look for any URL
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const matches = text.match(urlRegex);
   
@@ -248,12 +257,22 @@ const FinancialApp = () => {
             const heUrl = morningResult.url.he ? extractUrlFromText(morningResult.url.he) : null;
             const originUrl = morningResult.url.origin ? extractUrlFromText(morningResult.url.origin) : null;
             
-            // Use the first available URL, prioritizing English
-            const link = enUrl || heUrl || originUrl;
+            // Check if any of the extracted URLs are mrnng.to URLs
+            const enIsShort = enUrl && enUrl.includes('mrnng.to');
+            const heIsShort = heUrl && heUrl.includes('mrnng.to');
+            const originIsShort = originUrl && originUrl.includes('mrnng.to');
+            
+            // Prioritize short URLs, then fall back to regular URLs
+            let link = null;
+            
+            if (enIsShort) link = enUrl;
+            else if (heIsShort) link = heUrl;
+            else if (originIsShort) link = originUrl;
+            else link = enUrl || heUrl || originUrl;
             
             if (link) {
               setDocumentLink(link);
-              console.log("Document link extracted:", link);
+              console.log("Document link extracted:", link, link.includes('mrnng.to') ? "(short format)" : "");
             }
           } else if (morningResult.id) {
             // Fallback to constructed URL
@@ -333,12 +352,22 @@ const FinancialApp = () => {
             const heUrl = morningResult.url.he ? extractUrlFromText(morningResult.url.he) : null;
             const originUrl = morningResult.url.origin ? extractUrlFromText(morningResult.url.origin) : null;
             
-            // Use the first available URL, prioritizing English
-            const link = enUrl || heUrl || originUrl;
+            // Check if any of the extracted URLs are mrnng.to URLs
+            const enIsShort = enUrl && enUrl.includes('mrnng.to');
+            const heIsShort = heUrl && heUrl.includes('mrnng.to');
+            const originIsShort = originUrl && originUrl.includes('mrnng.to');
+            
+            // Prioritize short URLs, then fall back to regular URLs
+            let link = null;
+            
+            if (enIsShort) link = enUrl;
+            else if (heIsShort) link = heUrl;
+            else if (originIsShort) link = originUrl;
+            else link = enUrl || heUrl || originUrl;
             
             if (link) {
               setDocumentLink(link);
-              console.log("Document link extracted:", link);
+              console.log("Document link extracted:", link, link.includes('mrnng.to') ? "(short format)" : "");
             }
           } else if (morningResult.id) {
             // Fallback to constructed URL
