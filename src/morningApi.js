@@ -13,20 +13,21 @@ export async function getMorningToken(morningId, morningSecret) {
   }));
 
   try {
-    // Use the updated API path
-    const response = await fetch("/api/morning/api/v1/account/token", {
+    // Use the updated API path (OAuth 2.0 client_credentials)
+    const response = await fetch("/api/morning/idp/v1/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        id: morningId,
-        secret: morningSecret
+        grant_type: "client_credentials",
+        client_id: morningId,
+        client_secret: morningSecret
       })
     });
 
     console.log("Morning API token request status:", response.status);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Morning API error response:", errorText);
@@ -35,7 +36,7 @@ export async function getMorningToken(morningId, morningSecret) {
 
     const data = await response.json();
     console.log("Morning token obtained successfully");
-    return "Bearer " + data.token;
+    return "Bearer " + data.accessToken;
   } catch (error) {
     console.error("Error getting Morning token:", error);
     throw error;
@@ -108,7 +109,7 @@ function getDocumentLink(documentData) {
   
   // Fallback: If no URL is found but we have the document ID, construct a URL
   if (documentData && documentData.id) {
-    return `https://greeninvoice.co.il/view/${documentData.id}`;
+    return `https://morning.co/view/${documentData.id}`;
   }
   
   return null;

@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
   try {
     // Extract path from request URL (remove /api/morning)
     const urlPath = req.url.replace(/^\/api\/morning/, '');
-    const morningUrl = `https://api.greeninvoice.co.il${urlPath}`;
+    const morningUrl = `https://api.morning.co${urlPath}`;
     
     console.log(`Proxying request to: ${morningUrl}`);
     

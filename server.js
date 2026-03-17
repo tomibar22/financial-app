@@ -14,7 +14,7 @@ app.use('/notion', createProxyMiddleware({
 
 // Proxy for Morning API
 app.use('/morning', createProxyMiddleware({
-  target: 'https://api.greeninvoice.co.il',
+  target: 'https://api.morning.co',
   changeOrigin: true,
   pathRewrite: { '^/morning': '' },
 }));

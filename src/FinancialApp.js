@@ -292,7 +292,7 @@ const FinancialApp = () => {
             else originalLink = enUrl || heUrl || originUrl;
           } else if (morningResult.id) {
             // Fallback to constructed URL
-            originalLink = `https://greeninvoice.co.il/view/${morningResult.id}`;
+            originalLink = `https://morning.co/view/${morningResult.id}`;
           }
           
           if (originalLink) {
@@ -394,7 +394,7 @@ const FinancialApp = () => {
             else originalLink = enUrl || heUrl || originUrl;
           } else if (morningResult.id) {
             // Fallback to constructed URL
-            originalLink = `https://greeninvoice.co.il/view/${morningResult.id}`;
+            originalLink = `https://morning.co/view/${morningResult.id}`;
           }
           
           if (originalLink) {
