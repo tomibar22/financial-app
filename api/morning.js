@@ -15,7 +15,12 @@ module.exports = async (req, res) => {
   try {
     // Extract path from request URL (remove /api/morning)
     const urlPath = req.url.replace(/^\/api\/morning/, '');
-    const morningUrl = `https://api.morning.co${urlPath}`;
+    
+    // Token endpoint stays at api.morning.co, all other calls go to api.greeninvoice.co.il
+    const baseUrl = urlPath.startsWith('/idp/')
+      ? 'https://api.morning.co'
+      : 'https://api.greeninvoice.co.il';
+    const morningUrl = `${baseUrl}${urlPath}`;
     
     console.log(`Proxying request to: ${morningUrl}`);
     
