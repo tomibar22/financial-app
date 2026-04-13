@@ -35,6 +35,10 @@ export async function getMorningToken(morningId, morningSecret) {
     }
 
     const data = await response.json();
+    console.log("Morning token response:", JSON.stringify(data));
+    if (!data.accessToken) {
+      throw new Error(`Token response missing accessToken. Got: ${JSON.stringify(data)}`);
+    }
     console.log("Morning token obtained successfully");
     return "Bearer " + data.accessToken;
   } catch (error) {
@@ -312,7 +316,7 @@ export async function createMorningReceipt(receiptData, morningId, morningSecret
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Morning API error response:", errorText);
-      throw new Error(`Failed to create Morning receipt: ${response.status}`);
+      throw new Error(`Failed to create Morning receipt: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
