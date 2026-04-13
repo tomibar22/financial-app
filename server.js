@@ -12,9 +12,16 @@ app.use('/notion', createProxyMiddleware({
   pathRewrite: { '^/notion': '' },
 }));
 
-// Proxy for Morning API
-app.use('/morning', createProxyMiddleware({
+// Proxy for Morning token endpoint (stays at api.morning.co)
+app.use('/morning/idp', createProxyMiddleware({
   target: 'https://api.morning.co',
+  changeOrigin: true,
+  pathRewrite: { '^/morning': '' },
+}));
+
+// Proxy for Morning API calls (documents, clients, etc. → api.greeninvoice.co.il)
+app.use('/morning', createProxyMiddleware({
+  target: 'https://api.greeninvoice.co.il',
   changeOrigin: true,
   pathRewrite: { '^/morning': '' },
 }));
