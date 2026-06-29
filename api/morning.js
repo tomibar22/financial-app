@@ -26,8 +26,18 @@ module.exports = async (req, res) => {
     
     // Get the request body for POST requests
     let body = null;
-    if (req.method === 'POST' && req.body) {
-      body = JSON.stringify(req.body);
+    if (req.method === 'POST') {
+      if (urlPath.startsWith('/idp/')) {
+        // Inject OAuth credentials server-side from env vars — the browser
+        // never sends (or knows) the real client_secret.
+        body = JSON.stringify({
+          grant_type: 'client_credentials',
+          client_id: process.env.MORNING_ID,
+          client_secret: process.env.MORNING_SECRET
+        });
+      } else if (req.body) {
+        body = JSON.stringify(req.body);
+      }
     }
     
     // Make the request to Morning API

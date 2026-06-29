@@ -28,7 +28,11 @@ module.exports = async (req, res) => {
       delete headers['x-forwarded-proto'];
       delete headers['x-forwarded-port'];
       delete headers['x-real-ip'];
-      
+
+      // Inject the Notion API key server-side from env var; ignore any
+      // Authorization the browser sent (it no longer holds the real key).
+      headers['authorization'] = `Bearer ${process.env.NOTION_API_KEY}`;
+
       // Add Notion version if not present
       if (!headers['notion-version']) {
         headers['notion-version'] = '2022-06-28';
